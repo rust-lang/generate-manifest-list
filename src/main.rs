@@ -1,3 +1,4 @@
+use chrono::naive::NaiveDate;
 use rusoto_s3::{GetObjectRequest, S3Client, S3};
 use std::fmt::{self, Write};
 use std::io::Read;
@@ -18,14 +19,25 @@ fn main() {
     dotenv::dotenv().ok();
     let s3 = S3Client::new(Default::default());
 
-    // rust-inventories/
+    let mut date = NaiveDate::from_ymd(2019, 09, 15);
+    let week = chrono::Duration::weeks(1);
+    // We upload inventories every week, but we want to have the date of the
+    // previous week, not the current week. So advance until we hit the
+    //
+    // Note the less than here, this means that even if today is the day we'll
+    // generate based on last week's inventory; that ensures that we're working
+    // with a fully prepared inventory (even if it's a bit stale).
+    while date + week < chrono::Utc::today().naive_utc() {
+        date += week;
+    }
+    let date = format!("{}T04-00Z", date);
 
     let obj = s3
         .get_object(GetObjectRequest {
             bucket: BUCKET_NAME.to_owned(),
             key: format!(
                 "static-rust-lang-org/static-rust-lang-org/all-objects-csv/{}/manifest.json",
-                "2019-09-15T04-00Z", // date
+                date,
             ),
             ..Default::default()
         })
