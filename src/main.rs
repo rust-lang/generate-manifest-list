@@ -16,6 +16,7 @@ struct ManifestFile {
 const BUCKET_NAME: &str = "rust-inventories";
 
 fn main() {
+    env_logger::init();
     dotenv::dotenv().ok();
     let s3 = S3Client::new(Default::default());
 
