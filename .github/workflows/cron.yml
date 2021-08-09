@@ -1,0 +1,26 @@
+name: Generate fresh manifests.txt
+
+on:
+    workflow_dispatch: {}
+    schedule:
+        - cron: "0 6 * * 1" # every week
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Generate
+      run: cargo run
+      env:
+          AWS_ACCESS_KEY_ID: AKIA46X5W6CZLETGWKHR
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    - name: Upload
+      run: aws s3 cp --cache-control max-age=3600 manifests.txt s3://static-rust-lang-org/manifests.txt
+      env:
+          AWS_ACCESS_KEY_ID: AKIA46X5W6CZLETGWKHR
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+
