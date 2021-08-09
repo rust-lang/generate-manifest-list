@@ -2,6 +2,7 @@ use chrono::naive::NaiveDate;
 use rusoto_s3::{GetObjectRequest, S3Client, S3};
 use std::fmt::{self, Write};
 use std::io::Read;
+use tokio::io::AsyncReadExt;
 
 #[derive(Debug, serde::Deserialize)]
 struct Manifest {
@@ -15,9 +16,8 @@ struct ManifestFile {
 
 const BUCKET_NAME: &str = "rust-inventories";
 
-fn main() {
-    env_logger::init();
-    dotenv::dotenv().ok();
+#[tokio::main]
+async fn main() {
     let s3 = S3Client::new(Default::default());
 
     let mut date = NaiveDate::from_ymd(2019, 09, 15);
@@ -41,7 +41,7 @@ fn main() {
             )),
             ..Default::default()
         })
-        .sync()
+        .await
         .unwrap();
 
     let key = list
@@ -57,14 +57,15 @@ fn main() {
             key,
             ..Default::default()
         })
-        .sync()
+        .await
         .unwrap();
 
     let mut manifest = Vec::new();
     obj.body
         .unwrap()
-        .into_blocking_read()
+        .into_async_read()
         .read_to_end(&mut manifest)
+        .await
         .unwrap();
     let manifest: Manifest = serde_json::from_slice(&manifest).unwrap();
     let mut manifests = Vec::new();
@@ -75,10 +76,17 @@ fn main() {
                 key: key.clone(),
                 ..Default::default()
             })
-            .sync()
+            .await
             .unwrap();
         // csv file with Bucket, Key, Size, ETag, ReplicationStatus
-        let mut file = flate2::read::GzDecoder::new(obj.body.unwrap().into_blocking_read());
+        let mut contents = Vec::new();
+        obj.body
+            .unwrap()
+            .into_async_read()
+            .read_to_end(&mut contents)
+            .await
+            .unwrap();
+        let mut file = flate2::read::GzDecoder::new(&contents[..]);
         let mut contents = Vec::new();
         file.read_to_end(&mut contents).unwrap();
         let mut builder = csv::ReaderBuilder::new();
