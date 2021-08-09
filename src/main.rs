@@ -1,5 +1,6 @@
 use chrono::naive::NaiveDate;
 use rusoto_s3::{GetObjectRequest, S3Client, S3};
+use std::cmp::Ordering;
 use std::fmt::{self, Write};
 use std::io::Read;
 use tokio::io::AsyncReadExt;
@@ -105,35 +106,52 @@ async fn main() {
             if !key.starts_with("dist") {
                 continue;
             }
-            for channel in &[Channel::Nightly, Channel::Beta, Channel::Stable] {
-                let channel = *channel;
-                let name = format!("channel-rust-{}.toml", channel);
-                if !key.ends_with(&name) {
-                    continue;
-                }
-                // skip top-level manifest
-                if key == format!("dist/{}", &name) {
-                    continue;
-                }
-                let date = key.split('/').nth(1).unwrap();
-                if date == "staging" {
-                    continue;
-                }
-                let date = Date::parse(date).unwrap_or_else(|| {
-                    panic!("failed to parse {} from key={}", date, key);
-                });
+            if let Some((prefix, filename)) = key.rsplit_once('/') {
+                if let Some(filename) = filename.strip_suffix(".toml") {
+                    if let Some(channel) = filename.strip_prefix("channel-rust-") {
+                        // skip top-level manifest
+                        if prefix == "dist" {
+                            continue;
+                        }
+                        let date = key.split('/').nth(1).unwrap();
+                        if date == "staging" {
+                            continue;
+                        }
+                        let date = Date::parse(date).unwrap_or_else(|| {
+                            panic!("failed to parse {} from key={}", date, key);
+                        });
 
-                manifests.push((date, channel));
+                        manifests.push((date, channel.to_owned()));
+                    }
+                }
             }
         }
     }
-    manifests.sort_unstable();
+    manifests.sort_unstable_by(|(a_date, a_channel), (b_date, b_channel)| {
+        a_date
+            .cmp(&b_date)
+            .then_with(|| match (a_channel.as_str(), b_channel.as_str()) {
+                ("stable", "stable") => Ordering::Equal,
+                ("stable", "beta") => Ordering::Less,
+                ("stable", "nightly") => Ordering::Less,
+                ("stable", _) => Ordering::Less,
+                ("beta", "beta") => Ordering::Equal,
+                ("beta", "stable") => Ordering::Greater,
+                ("beta", "nightly") => Ordering::Less,
+                ("beta", _) => Ordering::Less,
+                ("nightly", "nightly") => Ordering::Equal,
+                ("nightly", "beta") => Ordering::Greater,
+                ("nightly", "stable") => Ordering::Greater,
+                ("nightly", _) => Ordering::Less,
+                (a, b) => a.cmp(&b),
+            })
+    });
     let mut out = String::new();
-    for (nightly, channel) in manifests {
+    for (date, channel) in manifests {
         writeln!(
             &mut out,
             "static.rust-lang.org/dist/{}/channel-rust-{}.toml",
-            nightly, channel,
+            date, channel,
         )
         .unwrap();
     }
@@ -145,27 +163,6 @@ struct InventoryRecord {
     bucket: serde::de::IgnoredAny,
     key: String,
     size: u64,
-}
-
-#[derive(Copy, Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
-enum Channel {
-    Stable,
-    Beta,
-    Nightly,
-}
-
-impl fmt::Display for Channel {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Channel::Stable => "stable",
-                Channel::Beta => "beta",
-                Channel::Nightly => "nightly",
-            }
-        )
-    }
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
