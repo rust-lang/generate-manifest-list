@@ -31,15 +31,30 @@ fn main() {
     while date + week < chrono::Utc::today().naive_utc() {
         date += week;
     }
-    let date = format!("{}T04-00Z", date);
+
+    let list = s3
+        .list_objects_v2(rusoto_s3::ListObjectsV2Request {
+            bucket: BUCKET_NAME.to_owned(),
+            prefix: Some(format!(
+                "static-rust-lang-org/static-rust-lang-org/all-objects-csv/{}",
+                date,
+            )),
+            ..Default::default()
+        })
+        .sync()
+        .unwrap();
+
+    let key = list
+        .contents
+        .expect("at least one key")
+        .iter()
+        .find_map(|obj| obj.key.clone().filter(|k| k.ends_with("manifest.json")))
+        .unwrap();
 
     let obj = s3
         .get_object(GetObjectRequest {
             bucket: BUCKET_NAME.to_owned(),
-            key: format!(
-                "static-rust-lang-org/static-rust-lang-org/all-objects-csv/{}/manifest.json",
-                date,
-            ),
+            key,
             ..Default::default()
         })
         .sync()
