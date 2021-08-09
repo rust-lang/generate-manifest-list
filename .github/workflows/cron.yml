@@ -17,10 +17,10 @@ jobs:
       env:
           AWS_ACCESS_KEY_ID: AKIA46X5W6CZLETGWKHR
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-west-1
     - name: Upload
       run: aws s3 cp --cache-control max-age=3600 manifests.txt s3://static-rust-lang-org/manifests.txt
       env:
           AWS_ACCESS_KEY_ID: AKIA46X5W6CZLETGWKHR
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-
+          AWS_REGION: us-west-1
