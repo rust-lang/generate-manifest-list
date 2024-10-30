@@ -1,6 +1,5 @@
 use chrono::naive::NaiveDate;
 use rusoto_s3::{GetObjectRequest, S3Client, S3};
-use std::cmp::Ordering;
 use std::fmt::{self, Write};
 use std::io::Read;
 use tokio::io::AsyncReadExt;
@@ -127,24 +126,19 @@ async fn main() {
             }
         }
     }
-    manifests.sort_unstable_by(|(a_date, a_channel), (b_date, b_channel)| {
-        a_date
-            .cmp(&b_date)
-            .then_with(|| match (a_channel.as_str(), b_channel.as_str()) {
-                ("stable", "stable") => Ordering::Equal,
-                ("stable", "beta") => Ordering::Less,
-                ("stable", "nightly") => Ordering::Less,
-                ("stable", _) => Ordering::Less,
-                ("beta", "beta") => Ordering::Equal,
-                ("beta", "stable") => Ordering::Greater,
-                ("beta", "nightly") => Ordering::Less,
-                ("beta", _) => Ordering::Less,
-                ("nightly", "nightly") => Ordering::Equal,
-                ("nightly", "beta") => Ordering::Greater,
-                ("nightly", "stable") => Ordering::Greater,
-                ("nightly", _) => Ordering::Less,
-                (a, b) => a.cmp(&b),
-            })
+    manifests.sort_unstable_by_key(|(date, channel)| {
+        (
+            *date,
+            (
+                match channel.as_str() {
+                    "stable" => 1,
+                    "beta" => 2,
+                    "nightly" => 3,
+                    _ => 4,
+                },
+                channel.to_owned(),
+            ),
+        )
     });
     let mut out = String::new();
     for (date, channel) in manifests {
@@ -160,12 +154,14 @@ async fn main() {
 
 #[derive(Debug, serde::Deserialize)]
 struct InventoryRecord {
+    #[allow(unused)]
     bucket: serde::de::IgnoredAny,
     key: String,
+    #[allow(unused)]
     size: u64,
 }
 
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialOrd, Ord, PartialEq, Eq)]
 struct Date {
     year: u16,
     month: u8,
