@@ -5,6 +5,9 @@ on:
     schedule:
         - cron: "0 6 * * 1" # every week
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,3 +27,19 @@ jobs:
           AWS_ACCESS_KEY_ID: AKIA46X5W6CZLETGWKHR
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-west-1
+
+  keep-alive:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      # We don't often commit to this repository, and without any activity GitHub Actions will
+      # disable scheduled workflows after 60 days. It turns out that calling the "enable" API even
+      # before the workflow is disabled resets the 60 days counter though!
+      #
+      # Inspired by https://github.com/liskin/gh-workflow-keepalive/blob/main/action.yml
+      - name: Call the GitHub API
+        run: |
+          curl "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/cron.yml/enable" -H "Authorization: token ${GITHUB_TOKEN}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
