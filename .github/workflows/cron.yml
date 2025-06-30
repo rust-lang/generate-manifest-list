@@ -40,6 +40,6 @@ jobs:
       # Inspired by https://github.com/liskin/gh-workflow-keepalive/blob/main/action.yml
       - name: Call the GitHub API
         run: |
-          curl "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/cron.yml/enable" -H "Authorization: token ${GITHUB_TOKEN}"
+          curl -X PUT "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/cron.yml/enable" -H "Authorization: token ${GITHUB_TOKEN}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
