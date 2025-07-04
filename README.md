@@ -1,3 +1,10 @@
+# Archived!
+
+This tool is not in use anymore, as <https://static.rust-lang.org/manifests.txt>
+is now updated by [the release process][promote-release].
+
+[promote-release]: https://github.com/rust-lang/promote-release
+
 # Generates manifest lists from static.rust-lang.org
 
 `cargo run` will query AWS credentials from the environment using `rusoto`'s default provider.
